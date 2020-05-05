@@ -400,7 +400,7 @@ bn <- custom.fit(dag,cpt)
 ```{r}
 set.seed(4231)
 #Generate sample 
-total= 5000000 #number of sample in aggreagated data
+total= 3276000 #number of sample in aggreagated data
 sim <- rbn(bn,n=total)
 head(sim)
 ```
