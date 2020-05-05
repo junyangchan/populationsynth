@@ -4,8 +4,8 @@ library(magrittr)
 library(readr)
 ```
 ```{r}
-for (x in 16:40){
-  sample = household[((x-1)*50000+1):(50000*x),]
+for (x in 1:20){
+  sample = household[((x-1)*61265+1):(61265*x),]
   #Match possible agents to household data 
   household_f <- inner_join(sample,person,by=c("Age" = "temp", "Sex" = "Sex","Marriage" = "Marriage", "HType" = "HType","Race"="Race","PlanningArea"="PlanningArea")) %>% select(HID,PID,Subzone)
   household_f %<>% group_by(HID) %>% sample_n(1)
