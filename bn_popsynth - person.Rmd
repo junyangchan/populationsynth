@@ -1,0 +1,824 @@
+
+```{r message=FALSE}
+#Library
+library(bnlearn)
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(readxl)
+```
+
+```{r}
+#Creating DAG Graph template
+dag <- empty.graph(nodes = c("Age","Sex","Marriage","Subzone","HType","Race","NumberofChildren"))
+arc.set <- matrix(c("Age", "Sex",
+                    "Age", "Marriage",
+                    "Marriage", "Sex",
+                    "Sex", "Subzone",
+                    "Age", "Subzone",
+                    "Subzone", "HType",
+                    "Subzone","Race",
+                    "Sex","Race",
+                    "Age","NumberofChildren",
+                    "Sex","NumberofChildren",
+                    "Marriage","NumberofChildren",
+                    "Race","NumberofChildren"),
+                  byrow = TRUE, ncol = 2,
+                  dimnames = list(NULL, c("from", "to")))
+arcs(dag) <- arc.set
+nodes(dag)
+plot(dag)
+```
+```{r}
+#Define Variables
+NumberofChildren.lv <- c("0","1","2","3","4","5 & Over")
+Race.lv <- c("Chinese","Malay","Indian","Others")
+Age.lv <- c("0 - 4","5 - 9","10 - 14","15 - 19","20 - 24","25 - 29","30 - 34","35 - 39","40 - 44","45 - 49","50 - 54","55 - 59","60 - 64","65 - 69","70 - 74","75 - 79","80 - 84","85 & Over")
+Sex.lv <- c("M", "F")
+Marriage.lv <- c("Single","Married","Widowed","Divorced")
+Subzone.lv <- c(" Ang Mo Kio Town Centre ",
+" Cheng San ",
+" Chong Boon ",
+" Kebun Bahru ",
+" Sembawang Hills ",
+" Shangri-La ",
+" Tagore ",
+" Townsville ",
+" Yio Chu Kang ",
+" Yio Chu Kang East ",
+" Yio Chu Kang North ",
+" Yio Chu Kang West ",
+" Bayshore ",
+" Bedok North ",
+" Bedok Reservoir ",
+" Bedok South ",
+" Frankel ",
+" Kaki Bukit ",
+" Kembangan ",
+" Siglap ",
+" Bishan East ",
+" Marymount ",
+" Upper Thomson ",
+" Liu Fang ",
+" SaMulun ",
+" Shipyard ",
+" Tukang ",
+" BrickWorks ",
+" Bukit Batok Central ",
+" Bukit Batok East ",
+" Bukit Batok South ",
+" Bukit Batok West ",
+" Gombak ",
+" Guilin ",
+" Hillview ",
+" Hong Kah North ",
+" Alexandra Hill ",
+" Alexandra North ",
+" Bukit Ho Swee ",
+" Bukit Merah ",
+" City Terminals ",
+" Depot Road ",
+" Everton Park ",
+" Henderson Hill ",
+" Kampong Tiong Bahru ",
+" Maritime Square ",
+" Redhill ",
+" Singapore General Hospital ",
+" Telok Blangah Drive ",
+" Telok Blangah Rise ",
+" Telok Blangah Way ",
+" Tiong Bahru ",
+" Tiong Bahru Station ",
+" Bangkit ",
+" Dairy Farm ",
+" Fajar ",
+" Jelebu ",
+" Nature Reserve ",
+" Saujana ",
+" Senja ",
+" Anak Bukit ",
+" Coronation Road ",
+" Farrer Court ",
+" Hillcrest ",
+" Holland Road ",
+" Leedon Park ",
+" Swiss Club ",
+" Ulu Pandan ",
+" Central Water Catchment ",
+" Changi Airport ",
+" Changi Point ",
+" Changi West ",
+" Changi Bay ",
+" Choa Chu Kang Central ",
+" Choa Chu Kang North ",
+" Keat Hong ",
+" Peng Siang ",
+" Teck Whye ",
+" Yew Tee ",
+" Clementi Central ",
+" Clementi North ",
+" Clementi West ",
+" Clementi Woods ",
+" Faber ",
+" Pandan ",
+" Sunset Way ",
+" Toh Tuck ",
+" West Coast ",
+" Anson ",
+" Bayfront Subzone ",
+" Bugis ",
+" Cecil ",
+" Central Subzone ",
+" City Hall ",
+" Clifford Pier ",
+" Marina Centre ",
+" Maxwell ",
+" Phillip ",
+" Raffles Place ",
+" Tanjong Pagar ",
+" Aljunied ",
+" Geylang East ",
+" Kallang Way ",
+" Kampong Ubi ",
+" Macpherson ",
+" Defu Industrial Park ",
+" Hougang Central ",
+" Hougang East ",
+" Hougang West ",
+" Kangkar ",
+" Kovan ",
+" Lorong Ah Soo ",
+" Lorong Halus ",
+" Tai Seng ",
+" Trafalgar ",
+" International Business Park ",
+" Jurong Gateway ",
+" Jurong Port ",
+" Jurong River ",
+" Lakeside ",
+" Penjuru Crescent ",
+" Teban Gardens ",
+" Toh Guan ",
+" Yuhua East ",
+" Yuhua West ",
+" Boon Lay Place ",
+" Chin Bee ",
+" Hong Kah ",
+" Jurong West Central ",
+" Kian Teck ",
+" Safti ",
+" Taman Jurong ",
+" Wenya ",
+" Yunnan ",
+" Bendemeer ",
+" Boon Keng ",
+" Crawford ",
+" Geylang Bahru ",
+" Kallang Bahru ",
+" Kampong Bugis ",
+" Kampong Java ",
+" Lavender ",
+" Tanjong Rhu ",
+" Lim Chu Kang ",
+" Mandai East ",
+" Mandai Estate ",
+" Mandai West ",
+" Marina East ",
+" Marina South ",
+" East Coast ",
+" Katong ",
+" Marina East (MP) ",
+" Marine Parade ",
+" Mountbatten ",
+" Bras Basah ",
+" Dhoby Ghaut ",
+" Fort Canning ",
+" Cairnhill ",
+" Goodwood Park ",
+" Istana Negara ",
+" Monk'S Hill ",
+" Newton Circus ",
+" Orange Grove ",
+" North-Eastern Islands ",
+" Balestier ",
+" Dunearn ",
+" Malcolm ",
+" Moulmein ",
+" Mount Pleasant ",
+" Boulevard ",
+" Somerset ",
+" Tanglin ",
+" China Square ",
+" Chinatown ",
+" Pearl'S Hill ",
+" People'S Park ",
+" Flora Drive ",
+" Loyang East ",
+" Loyang West ",
+" Pasir Ris Central ",
+" Pasir Ris Drive ",
+" Pasir Ris Park ",
+" Pasir Ris Wafer Fab Park ",
+" Pasir Ris West ",
+" Airport Road ",
+" Paya Lebar East ",
+" Paya Lebar North ",
+" Paya Lebar West ",
+" Plab ",
+" Benoi Sector ",
+" Gul Basin ",
+" Gul Circle ",
+" Joo Koon ",
+" Pioneer Sector ",
+" Coney Island ",
+" Matilda ",
+" Northshore ",
+" Punggol Canal ",
+" Punggol Field ",
+" Punggol Town Centre ",
+" Waterway East ",
+" Commonwealth ",
+" Dover ",
+" Ghim Moh ",
+" Holland Drive ",
+" Kent Ridge ",
+" Margaret Drive ",
+" Mei Chin ",
+" National University Of S'Pore ",
+" One North ",
+" Pasir Panjang 1 ",
+" Pasir Panjang 2 ",
+" Port ",
+" Queensway ",
+" Singapore Polytechnic ",
+" Tanglin Halt ",
+" Institution Hill ",
+" Leonie Hill ",
+" One Tree Hill ",
+" Oxley ",
+" Paterson ",
+" Bencoolen ",
+" Farrer Park ",
+" Kampong Glam ",
+" Little India ",
+" Mackenzie ",
+" Mount Emily ",
+" Rochor Canal ",
+" Selegie ",
+" Sungei Road ",
+" Victoria ",
+" Pulau Punggol Barat ",
+" Pulau Punggol Timor ",
+" Seletar ",
+" Seletar Aerospace Park ",
+" Admiralty ",
+" Sembawang Central ",
+" Sembawang East ",
+" Sembawang North ",
+" Sembawang Springs ",
+" Sembawang Straits ",
+" Senoko North ",
+" Senoko South ",
+" The Wharves ",
+" Anchorvale ",
+" Compassvale ",
+" Fernvale ",
+" Lorong Halus North ",
+" Rivervale ",
+" Sengkang Town Centre ",
+" Sengkang West ",
+" Lorong Chuan ",
+" Seletar Hills ",
+" Serangoon Central ",
+" Serangoon Garden ",
+" Serangoon North ",
+" Serangoon North Ind Estate ",
+" Upper Paya Lebar ",
+" Pulau Seletar ",
+" Simpang North ",
+" Simpang South ",
+" Tanjong Irau ",
+" Boat Quay ",
+" Clarke Quay ",
+" Robertson Quay ",
+" Sentosa ",
+" Southern Group ",
+" Straits View ",
+" Gali Batu ",
+" Kranji ",
+" Pang Sua ",
+" Reservoir View ",
+" Turf Club ",
+" Simei ",
+" Tampines East ",
+" Tampines North ",
+" Tampines West ",
+" Xilin ",
+" Chatsworth ",
+" Nassim ",
+" Ridout ",
+" Tyersall ",
+" Tengah ",
+" Bidadari ",
+" Boon Teck ",
+" Braddell ",
+" Joo Seng ",
+" Kim Keat ",
+" Lorong 8 Toa Payoh ",
+" Pei Chun ",
+" Potong Pasir ",
+" Sennett ",
+" Toa Payoh Central ",
+" Toa Payoh West ",
+" Woodleigh ",
+" Tengeh ",
+" Tuas Bay ",
+" Tuas North ",
+" Tuas Promenade ",
+" Tuas View ",
+" Tuas View Extension ",
+" Jurong Island And Bukom ",
+" Semakau ",
+" Sudong ",
+" Western Water Catchment ",
+" Greenwood Park ",
+" Midview ",
+" North Coast ",
+" Senoko West ",
+" Woodgrove ",
+" Woodlands East ",
+" Woodlands Regional Centre ",
+" Woodlands South ",
+" Woodlands West ",
+" Khatib ",
+" Lower Seletar ",
+" Nee Soon ",
+" Northland ",
+" Springleaf ",
+" Yishun Central ",
+" Yishun East ",
+" Yishun South ",
+" Yishun West ")
+HType.lv <- c( "1- And 2-Room Flats 2"," 3-Room Flats","4-Room Flats","5-Room And Executive Flats","Condo- Miniums And Other Apartments","Landed Properties","Others")
+
+```
+```{r message=FALSE}
+#Conditional probability input from AR
+
+#Copy and paste each respective txt file into its array
+age_ar =c(0.04703923,0.05238681,0.05493376,0.06223896,0.06767879,0.06944679,0.0744664,0.07714403,0.08116432,0.07774361,0.08073641,0.07560407,0.06162144,0.04674456,0.02629718,0.02080867,0.0132703,0.01067466)#age_ar.txt
+sex_ar <- read_excel("Inputs/sex_ar.xlsx",col_names = FALSE)
+sex_ar <- as.numeric(unlist(sex_ar))#subzone_ar.txt
+sex_ar <- sex_ar[-145]#empty cell
+marriage_ar <- read_excel("Inputs/marriage_ar.xlsx",col_names = FALSE)
+marriage_ar <- as.numeric(unlist(marriage_ar))#subzone_ar.txt
+marriage_ar <- marriage_ar[c(-73,-74,-75)]#empty cell
+subzone_ar <- read_excel("Inputs/subzone_ar.xlsx",col_names = FALSE)
+subzone_ar <- as.numeric(unlist(subzone_ar))#subzone_ar.txt
+HType_ar <- read_excel("Inputs/HType_ar.xlsx",col_names = FALSE)
+HType_ar <- as.numeric(unlist(HType_ar))#HType_ar.txt
+Race_ar <- read_excel("Inputs/Race_ar.xlsx",col_names = FALSE)
+Race_ar <- as.numeric(unlist(Race_ar))#HType_ar.txt
+NumberofChildren_ar <- read_excel("Inputs/Numberchildren_ar.xlsx",col_names = FALSE)
+NumberofChildren_ar <- as.numeric(unlist(NumberofChildren_ar))#HType_ar.txt
+```
+```{r}
+#Create conditional probability table
+Age.prob <- array(age_ar, dim = 18, dimnames = list(Age = Age.lv))
+Sex.prob <- array(sex_ar, dim = c(2,18,4), dimnames = list(Sex = Sex.lv,Age = Age.lv, Marriage = Marriage.lv))
+Marriage.prob <- array(marriage_ar, dim = c(4,18), dimnames = list(Marriage = Marriage.lv, Age = Age.lv))
+Subzone.prob <- array(subzone_ar, dim = c(323,18,2), dimnames = list(Subzone = Subzone.lv, Age = Age.lv,Sex = Sex.lv))
+HType.prob <- array(HType_ar, dim = c(7,323), dimnames = list(HType = HType.lv, Subzone = Subzone.lv))
+Race.prob <- array(Race_ar, dim =c(4,323,2),dimnames = list(Race = Race.lv,Subzone = Subzone.lv,Sex = Sex.lv))
+NumberofChildren.prob <- array(NumberofChildren_ar, dim =c(6,18,4,2,4),dimnames = list(NumberofChildren = NumberofChildren.lv, Age = Age.lv, Race = Race.lv,Sex = Sex.lv,Marriage = Marriage.lv))
+cpt <- list(Age = Age.prob, Sex = Sex.prob, Marriage = Marriage.prob, Subzone = Subzone.prob, HType = HType.prob,Race = Race.prob,NumberofChildren = NumberofChildren.prob)
+```
+```{r}
+#Create Bayesian network by fitting DAG with CPT
+bn <- custom.fit(dag,cpt)
+```
+```{r}
+set.seed(4231)
+#Generate sample 
+total= 5000000 #number of sample in aggreagated data
+sim <- rbn(bn,n=total)
+head(sim)
+```
+
+
+```{r}
+#Scaling Subzone to Planning Area 
+AngMoKio <-c(" Ang Mo Kio Town Centre ",
+" Cheng San ",
+" Chong Boon ",
+" Kebun Bahru ",
+" Sembawang Hills ",
+" Shangri-La ",
+" Tagore ",
+" Townsville ",
+" Yio Chu Kang ",
+" Yio Chu Kang East ",
+" Yio Chu Kang North ",
+" Yio Chu Kang West ") 
+Bedok <- c(" Bayshore ",
+" Bedok North ",
+" Bedok Reservoir ",
+" Bedok South ",
+" Frankel ",
+" Kaki Bukit ",
+" Kembangan ",
+" Siglap ")
+Bishan <- c(" Bishan East ",
+" Marymount ",
+" Upper Thomson ")
+BoonLay <- c(" Liu Fang ",
+" SaMulun ",
+" Shipyard ",
+" Tukang ") 
+BukitBatok <-c(" BrickWorks ",
+" Bukit Batok Central ",
+" Bukit Batok East ",
+" Bukit Batok South ",
+" Bukit Batok West ",
+" Gombak ",
+" Guilin ",
+" Hillview ",
+" Hong Kah North ") 
+BukitMerah <- c(" Alexandra Hill ",
+" Alexandra North ",
+" Bukit Ho Swee ",
+" Bukit Merah ",
+" City Terminals ",
+" Depot Road ",
+" Everton Park ",
+" Henderson Hill ",
+" Kampong Tiong Bahru ",
+" Maritime Square ",
+" Redhill ",
+" Singapore General Hospital ",
+" Telok Blangah Drive ",
+" Telok Blangah Rise ",
+" Telok Blangah Way ",
+" Tiong Bahru ",
+" Tiong Bahru Station ")
+BukitPanjang <- c(" Bangkit ",
+" Dairy Farm ",
+" Fajar ",
+" Jelebu ",
+" Nature Reserve ",
+" Saujana ",
+" Senja ")
+BukitTimah <- c(" Anak Bukit ",
+" Coronation Road ",
+" Farrer Court ",
+" Hillcrest ",
+" Holland Road ",
+" Leedon Park ",
+" Swiss Club ",
+" Ulu Pandan ")
+CentralWaterCatchment <- c(" Central Water Catchment ")  
+Changi <- c(" Changi Airport ",
+" Changi Point ",
+" Changi West ")
+ChangiBay <- c(" Changi Bay ")
+ChoaChuKang <- c(" Choa Chu Kang Central ",
+" Choa Chu Kang North ",
+" Keat Hong ",
+" Peng Siang ",
+" Teck Whye ",
+" Yew Tee ")
+Clementi <- c(" Clementi Central ",
+" Clementi North ",
+" Clementi West ",
+" Clementi Woods ",
+" Faber ",
+" Pandan ",
+" Sunset Way ",
+" Toh Tuck ",
+" West Coast ")
+DowntownCore <- c(" Anson ",
+" Bayfront Subzone ",
+" Bugis ",
+" Cecil ",
+" Central Subzone ",
+" City Hall ",
+" Clifford Pier ",
+" Marina Centre ",
+" Maxwell ",
+" Phillip ",
+" Raffles Place ",
+" Tanjong Pagar ")
+Geylang <- c(" Aljunied ",
+" Geylang East ",
+" Kallang Way ",
+" Kampong Ubi ",
+" Macpherson ")
+Hougang <- c(" Defu Industrial Park ",
+" Hougang Central ",
+" Hougang East ",
+" Hougang West ",
+" Kangkar ",
+" Kovan ",
+" Lorong Ah Soo ",
+" Lorong Halus ",
+" Tai Seng ",
+" Trafalgar ")
+JurongEast <- c(" International Business Park ",
+" Jurong Gateway ",
+" Jurong Port ",
+" Jurong River ",
+" Lakeside ",
+" Penjuru Crescent ",
+" Teban Gardens ",
+" Toh Guan ",
+" Yuhua East ",
+" Yuhua West ")
+JurongWest <- c(" Boon Lay Place ",
+" Chin Bee ",
+" Hong Kah ",
+" Jurong West Central ",
+" Kian Teck ",
+" Safti ",
+" Taman Jurong ",
+" Wenya ",
+" Yunnan ")
+Kallang <- c(" Bendemeer ",
+" Boon Keng ",
+" Crawford ",
+" Geylang Bahru ",
+" Kallang Bahru ",
+" Kampong Bugis ",
+" Kampong Java ",
+" Lavender ",
+" Tanjong Rhu ")
+LimChuKang<- c(" Lim Chu Kang ")
+Mandai <- c(" Mandai East ",
+" Mandai Estate ",
+" Mandai West ")
+MarinaEast <- c(" Marina East ") 
+MarinaSouth <- c(" Marina South ")
+MarineParade <-c(" East Coast ",
+" Katong ",
+" Marina East (MP) ",
+" Marine Parade ",
+" Mountbatten ")
+Museum <-c(" Bras Basah ",
+" Dhoby Ghaut ",
+" Fort Canning ")
+Newton<-c(" Cairnhill ",
+" Goodwood Park ",
+" Istana Negara ",
+" Monk'S Hill ",
+" Newton Circus ",
+" Orange Grove ")
+NorthEasternIslands<-c(" North-Eastern Islands ")
+Novena<-c(" Balestier ",
+" Dunearn ",
+" Malcolm ",
+" Moulmein ",
+" Mount Pleasant ")
+Orchard<-c(" Boulevard ",
+" Somerset ",
+" Tanglin ")
+Outram<-c(" China Square ",
+" Chinatown ",
+" Pearl'S Hill ",
+" People'S Park ")
+PasirRis<-c(" Flora Drive ",
+" Loyang East ",
+" Loyang West ",
+" Pasir Ris Central ",
+" Pasir Ris Drive ",
+" Pasir Ris Park ",
+" Pasir Ris Wafer Fab Park ",
+" Pasir Ris West ")
+PayaLebar<-c(" Airport Road ",
+" Paya Lebar East ",
+" Paya Lebar North ",
+" Paya Lebar West ",
+" Plab ")
+Pioneer<-c(" Benoi Sector ",
+" Gul Basin ",
+" Gul Circle ",
+" Joo Koon ",
+" Pioneer Sector ")
+Punggol<-c(" Coney Island ",
+" Matilda ",
+" Northshore ",
+" Punggol Canal ",
+" Punggol Field ",
+" Punggol Town Centre ",
+" Waterway East ")
+Queenstown<-c(" Commonwealth ",
+" Dover ",
+" Ghim Moh ",
+" Holland Drive ",
+" Kent Ridge ",
+" Margaret Drive ",
+" Mei Chin ",
+" National University Of S'Pore ",
+" One North ",
+" Pasir Panjang 1 ",
+" Pasir Panjang 2 ",
+" Port ",
+" Queensway ",
+" Singapore Polytechnic ",
+" Tanglin Halt ")
+RiverValley<-c(" Institution Hill ",
+" Leonie Hill ",
+" One Tree Hill ",
+" Oxley ",
+" Paterson ")
+Rochor <-c(" Bencoolen ",
+" Farrer Park ",
+" Kampong Glam ",
+" Little India ",
+" Mackenzie ",
+" Mount Emily ",
+" Rochor Canal ",
+" Selegie ",
+" Sungei Road ",
+" Victoria ")
+Seletar <-c(" Pulau Punggol Barat ",
+" Pulau Punggol Timor ",
+" Seletar ",
+" Seletar Aerospace Park ")
+Sembawang <-c(" Admiralty ",
+" Sembawang Central ",
+" Sembawang East ",
+" Sembawang North ",
+" Sembawang Springs ",
+" Sembawang Straits ",
+" Senoko North ",
+" Senoko South ",
+" The Wharves ")
+Sengkang <-c(" Anchorvale ",
+" Compassvale ",
+" Fernvale ",
+" Lorong Halus North ",
+" Rivervale ",
+" Sengkang Town Centre ",
+" Sengkang West ")
+Serangoon <-c(" Lorong Chuan ",
+" Seletar Hills ",
+" Serangoon Central ",
+" Serangoon Garden ",
+" Serangoon North ",
+" Serangoon North Ind Estate ",
+" Upper Paya Lebar ")
+Simpang<-c(" Pulau Seletar ",
+" Simpang North ",
+" Simpang South ",
+" Tanjong Irau ")
+SingaporeRiver <-c(" Boat Quay ",
+" Clarke Quay ",
+" Robertson Quay ")
+SouthernIslands<-c(" Sentosa ",
+" Southern Group ")
+StraitsView <-c(" Straits View ")
+SungeiKadut <-c(" Gali Batu ",
+" Kranji ",
+" Pang Sua ",
+" Reservoir View ",
+" Turf Club ")
+Tampines <-c(" Simei ",
+" Tampines East ",
+" Tampines North ",
+" Tampines West ",
+" Xilin ")
+Tanglin <-c(" Chatsworth ",
+" Nassim ",
+" Ridout ",
+" Tyersall ")
+Tengah <-c(" Tengah ")
+ToaPayoh <-c(" Bidadari ",
+" Boon Teck ",
+" Braddell ",
+" Joo Seng ",
+" Kim Keat ",
+" Lorong 8 Toa Payoh ",
+" Pei Chun ",
+" Potong Pasir ",
+" Sennett ",
+" Toa Payoh Central ",
+" Toa Payoh West ",
+" Woodleigh ")
+Tuas <- c(" Tengeh ",
+" Tuas Bay ",
+" Tuas North ",
+" Tuas Promenade ",
+" Tuas View ",
+" Tuas View Extension ")
+WesternIslands <-c(" Jurong Island And Bukom ",
+" Semakau ",
+" Sudong ")
+WesternWaterCatchment <- c(" Western Water Catchment ")
+
+Woodlands <-c(" Greenwood Park ",
+" Midview ",
+" North Coast ",
+" Senoko West ",
+" Woodgrove ",
+" Woodlands East ",
+" Woodlands Regional Centre ",
+" Woodlands South ",
+" Woodlands West ")
+
+Yishun <-c(" Khatib ",
+" Lower Seletar ",
+" Nee Soon ",
+" Northland ",
+" Springleaf ",
+" Yishun Central ",
+" Yishun East ",
+" Yishun South ",
+" Yishun West ")
+
+
+PA <- list(AngMoKio=AngMoKio,Bedok=Bedok,Bishan=Bishan,BukitBatok=BukitBatok,BukitMerah=BukitMerah,BukitPanjang=BukitPanjang,BukitTimah=BukitTimah,ChoaChuKang=ChoaChuKang,Clementi=Clementi,Geylang=Geylang,Hougang=Hougang,JurongEast=JurongEast,JurongWest=JurongWest,Kallang=Kallang,MarineParade=MarineParade,Novena=Novena,Outram=Outram,PasirRis=PasirRis,Punggol=Punggol,Queenstown=Queenstown,Sembawang=Sembawang,Sengkang=Sengkang,Serangoon=Serangoon,Tampines=Tampines,Tanglin=Tanglin,ToaPayoh=ToaPayoh,Woodlands=Woodlands,Yishun=Yishun,BoonLay=BoonLay,CentralWaterCatchment=CentralWaterCatchment,Changi=Changi,ChangiBay=ChangiBay,DowntownCore=DowntownCore,LimChuKang=LimChuKang,Mandai=Mandai,MarinaEast=MarinaEast,MarinaSouth=MarinaSouth,Museum=Museum,Newton=Newton,NorthEasternIslands=NorthEasternIslands,Orchard=Orchard,PayaLebar=PayaLebar,Pioneer=Pioneer,RiverValley=RiverValley,Rochor=Rochor,Seletar=Seletar,Simpang=Simpang,SingaporeRiver=SingaporeRiver,SouthernIslands=SouthernIslands,StraitsView=StraitsView,SungeiKadut=SungeiKadut,WesternWaterCatchment=WesternWaterCatchment,WesternIslands=WesternIslands,Tuas=Tuas,Tengah=Tengah)
+```
+```{r}
+#Formula to convert subzone to planning area
+sz_to_pa <- function(subzone){
+    for (x in names(PA)){
+      if (subzone %in% PA[[x]]){
+        break;
+      }
+    }
+    if(x %in% c("BoonLay","CentralWaterCatchment","Changi","ChangiBay","DowntownCore","LimChuKang","Mandai","MarinaEast","MarinaSouth","Museum","Newton","NorthEasternIslands","Orchard","PayaLebar","Pioneer","RiverValley","Rochor","Seletar","Simpang","SingaporeRiver","SouthernIslands","StraitsView","SungeiKadut","WesternWaterCatchment","WesternIslands","Tuas","Tengah")){
+      return("Others")
+    }else{
+      return(x)
+    }
+}
+```
+```{r}
+#Add planning Area 
+person <- sim %>% mutate(PlanningArea = sapply(Subzone,sz_to_pa,USE.NAMES = FALSE))
+
+#Make sure planning area is a factor
+person$PlanningArea <- factor(person$PlanningArea,levels = c("AngMoKio","Bedok","Bishan","BukitBatok","BukitMerah","BukitPanjang","BukitTimah","ChoaChuKang","Clementi","Geylang","Hougang","JurongEast","JurongWest","Kallang","MarineParade","Novena","Outram","PasirRis","Punggol","Queenstown","Sembawang","Sengkang","Serangoon","Tampines","Tanglin","ToaPayoh","Woodlands","Yishun","Others"))
+
+#Change NumberofChildren to numeric
+person$NumberofChildren <- as.numeric(person$NumberofChildren)
+
+#Add age bracket for household head & spouse
+tempage <- as.character(person$Age)
+tempage <- gsub("\\b0 - 4\\b","Below 30",tempage)
+tempage <- gsub("\\b5 - 9\\b","Below 30",tempage)
+tempage <- gsub("10 - 14","Below 30",tempage)
+tempage <- gsub("15 - 19","Below 30",tempage)
+tempage <- gsub("20 - 24","Below 30",tempage)
+tempage <- gsub("25 - 29","Below 30",tempage)
+tempage <- gsub("75 - 79","75 & Over",tempage)
+tempage <- gsub("80 - 84","75 & Over",tempage)
+tempage <- gsub("85 & Over","75 & Over",tempage)
+person %<>% mutate(temp = tempage)
+
+tempage <- as.character(person$temp)
+tempage <- gsub("65 - 69","65 & Over",tempage)
+tempage <- gsub("70 - 74","65 & Over",tempage)
+tempage <- gsub("75 - 79","65 & Over",tempage)
+tempage <- gsub("80 - 84","65 & Over",tempage)
+tempage <- gsub("85 & Over","65 & Over",tempage)
+person %<>% mutate(temp2 = tempage)
+
+#Add ID
+person %<>% mutate(PID = row_number())
+
+#Add randomnized age for person
+tempage <- as.character(person$Age)
+tempage <- gsub("\\b0 - 4\\b",sample(0:4,1),tempage)
+tempage <- gsub("\\b5 - 9\\b",sample(5:9,1),tempage)
+tempage <- gsub("10 - 14",sample(10:14,1),tempage)
+tempage <- gsub("15 - 19",sample(15:19,1),tempage)
+tempage <- gsub("20 - 24",sample(20:24,1),tempage)
+tempage <- gsub("25 - 29",sample(25:30,1),tempage)
+tempage <- gsub("30 - 34",sample(30:34,1),tempage)
+tempage <- gsub("35 - 39",sample(35:39,1),tempage)
+tempage <- gsub("40 - 44",sample(40:44,1),tempage)
+tempage <- gsub("45 - 49",sample(45:49,1),tempage)
+tempage <- gsub("50 - 54",sample(50:54,1),tempage)
+tempage <- gsub("55 - 59",sample(55:59,1),tempage)
+tempage <- gsub("60 - 64",sample(60:64,1),tempage)
+tempage <- gsub("65 - 69",sample(65:69,1),tempage)
+tempage <- gsub("70 - 74",sample(70:74,1),tempage)
+tempage <- gsub("75 - 79",sample(75:79,1),tempage)
+tempage <- gsub("80 - 84",sample(80:84,1),tempage)
+tempage <- gsub("85 & Over",sample(85:90,1),tempage)
+person %<>% mutate(ActualAge = as.numeric(tempage))
+rm(tempage)
+
+#remove unneccesary variables
+rm(list=setdiff(ls(),c("person")))
+```
+
+
+
+
+
+
+
+
+
+

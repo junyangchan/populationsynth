@@ -1,0 +1,215 @@
+```{r message = FALSE}
+library(tidyverse)
+library(magrittr)
+library(readr)
+```
+```{r}
+for (x in 16:40){
+  sample = household[((x-1)*50000+1):(50000*x),]
+  #Match possible agents to household data 
+  household_f <- inner_join(sample,person,by=c("Age" = "temp", "Sex" = "Sex","Marriage" = "Marriage", "HType" = "HType","Race"="Race","PlanningArea"="PlanningArea")) %>% select(HID,PID,Subzone)
+  household_f %<>% group_by(HID) %>% sample_n(1)
+  household_f <- inner_join(sample,household_f,by=c("HID"="HID"))
+  #Remove incorrect household
+  household_f %<>% filter(!(Npax_r==1 & SexSpouse != "None"))
+
+  #Get non spouse household data
+  household_nonspouse <- household_f %>% filter(SexSpouse=="None")
+  household_f %<>% filter(SexSpouse!="None")
+  
+  #Get Spouse data
+  household_spouse <- inner_join(household_f,person,by=c("AgeSpouse" = "temp2", "SexSpouse" = "Sex", "HType" = "HType","RaceSpouse"= "Race","Subzone"="Subzone","Marriage"="Marriage")) %>% select(HID,PID.y,NumberofChildren)
+  household_spouse %<>% group_by(HID) %>% sample_n(1)
+  household_spouse <- inner_join(household_f,household_spouse,by=c("HID"="HID"))
+  
+  #breakdown household composition
+  household_couple <- household_spouse %>% filter(Npax_r == 2)
+  household_couple_1child_others <- household_spouse %>% filter(Npax_r>=4 & NumberofChildren==1)
+  household_couple_2child_others <- household_spouse %>% filter(Npax_r>=5 & NumberofChildren==2)
+  household_couple_3child_others <- household_spouse %>% filter(Npax_r>=6 & NumberofChildren==3)
+  household_couple_1children <- household_spouse %>% filter(Npax_r == 3 & NumberofChildren >=1)
+  household_couple_2children <- household_spouse %>% filter(Npax_r == 4 & NumberofChildren >=2)
+  household_couple_3children <- household_spouse %>% filter(Npax_r == 5 & NumberofChildren >=3)
+  household_couple_4children <- household_spouse %>% filter(Npax_r == 6 & NumberofChildren >=4)
+  household_single <- household_nonspouse %>% filter(Npax_r ==1)
+  household_2others <- household_nonspouse %>% filter(Npax_r ==2)
+  household_3others <- household_nonspouse %>% filter(Npax_r ==3)
+  household_4others <- household_nonspouse %>% filter(Npax_r ==4)
+  household_5others <- household_nonspouse %>% filter(Npax_r ==5)
+  household_6others <- household_nonspouse %>% filter(Npax_r ==6)
+  
+
+  assign_child <- function(x,y){
+    return(inner_join(x,y,by=c("HType"="HType","Race"= "Race","Subzone"="Subzone")))
+  }
+  candidates <- function(x,y){
+    x<- x[(x$spouseAge-x$ActualAge >=18),]
+    x %<>% group_by(HID) %>% sample_n(1)
+    x <- x%>% select(-c(spouseAge,ActualAge))
+    return(inner_join(y,x,by=c("HID"="HID")))
+  }
+  assign_others <- function(x,y){
+    return(inner_join(x,y,by=c("HType"="HType","Subzone"="Subzone")))
+  }
+  candidates_others <- function(x,y){
+    x %<>% group_by(HID) %>% sample_n(1)
+    return(inner_join(y,x,by=c("HID"="HID")))
+  }
+  
+  #Assign children for household_couple_1children
+  household_couple_1children %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_1children %<>% candidates(household_spouse)
+  
+  #Assign children for household_couple_2children
+  household_couple_2children %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_2children %<>% candidates(household_spouse)
+  temp <- household_couple_2children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_2children <- candidates(temp, household_couple_2children)
+  rm(temp)
+  
+  #Assign children for household_couple_3children
+  household_couple_3children %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_3children %<>% candidates(household_spouse)
+  temp <- household_couple_3children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_3children <- candidates(temp, household_couple_3children)
+  temp <- household_couple_3children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y!=temp$PID.y.y & temp$PID.y.y.y.y!=temp$PID.y.y.y,] %>% select(-PID.y.y,-PID.y.y.y)
+  household_couple_3children <- candidates(temp, household_couple_3children)
+  rm(temp)
+  
+  #Assign children for household_couple_4children
+  household_couple_4children %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_4children %<>% candidates(household_spouse)
+  temp <- household_couple_4children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_4children <- candidates(temp, household_couple_4children)
+  temp <- household_couple_4children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y!=temp$PID.y.y & temp$PID.y.y.y.y!=temp$PID.y.y.y,] %>% select(-PID.y.y,-PID.y.y.y)
+  household_couple_4children <- candidates(temp, household_couple_4children)
+  temp <- household_couple_4children %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y.y.y,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y.y!=temp$PID.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y.y.y,] %>% select(-PID.y.y,-PID.y.y.y,-PID.y.y.y.y)
+  household_couple_4children <- candidates(temp, household_couple_4children)
+  rm(temp)
+  
+  #Assign children for household_couple_1child_others
+  #1 child + 1 other
+  household_couple_1child_others %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_1child_others %<>% candidates(household_spouse)
+  temp <- household_couple_1child_others %>% assign_others(person) %>% select(PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_1child_others <- candidates_others(temp,household_couple_1child_others)
+  
+  #1 child + 2 others
+  temp1 <- household_couple_1child_others %>% filter(Npax_r!=4)
+  temp <- temp1 %>% assign_others(person) %>% select(PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y,-PID.y.y.y)
+  temp1 <- candidates_others(temp,temp1)
+  
+  #1 child + 3 others
+  temp2 <- temp1 %>% filter(Npax_r!=5)
+  temp <- temp2 %>% assign_others(person) %>% select(PID.y.y.y.y.y,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y.y!=temp$PID.y.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y,-PID.y.y.y,-PID.y.y.y.y)
+  temp2 <- candidates_others(temp,temp2)
+  
+  #combine them together
+  household_couple_1child_others %<>% filter(Npax_r==4)
+  household_couple_1child_others %<>% bind_rows(temp1)
+  household_couple_1child_others %<>% bind_rows(temp2)
+  rm(temp,temp1,temp2)
+  
+  #Assign children for household_couple_2child_others
+  #2 child + 1 other
+  household_couple_2child_others %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_2child_others %<>% candidates(household_spouse)
+  temp <- household_couple_2child_others %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_2child_others <- candidates(temp, household_couple_2child_others)
+  #+1 other
+  temp <- household_couple_2child_others %>% assign_others(person) %>% select(PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y,-PID.y.y.y)
+  household_couple_2child_others <- candidates_others(temp,household_couple_2child_others)
+  
+  #2child + 2 other
+  temp1 <- household_couple_2child_others %>% filter(Npax_r!=5)
+  temp <- temp1 %>% assign_others(person) %>% select(PID.y.y.y.y.y,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y.y!=temp$PID.y.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y,-PID.y.y.y,-PID.y.y.y.y)
+  temp1 <- candidates_others(temp,temp1)
+  
+  #combine them together
+  household_couple_2child_others %<>% filter(Npax_r==5)
+  household_couple_2child_others %<>% bind_rows(temp1)
+  rm(temp,temp1)
+  
+  #Assign children for household_household_couple_3child_others
+  #3 child 
+  household_couple_3child_others %<>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y,HID)
+  household_couple_3child_others %<>% candidates(household_spouse)
+  temp <- household_couple_3child_others %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y)
+  household_couple_3child_others <- candidates(temp, household_couple_3child_others)
+  temp <- household_couple_3child_others %>% assign_child(person) %>% select(spouseAge,ActualAge,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y!=temp$PID.y.y & temp$PID.y.y.y.y!=temp$PID.y.y.y,] %>% select(-PID.y.y,-PID.y.y.y)
+  household_couple_3child_others <- candidates(temp, household_couple_3child_others)
+  #+ 1 other
+  temp <- household_couple_3child_others %>% assign_others(person) %>% select(PID.y.y.y.y.y,PID.y.y.y.y,PID.y.y.y,PID.y.y,HID)
+  temp <- temp[temp$PID.y.y.y.y.y!=temp$PID.y.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y.y & temp$PID.y.y.y.y.y!=temp$PID.y.y,] %>% select(-PID.y.y,-PID.y.y.y,-PID.y.y.y.y)
+  household_couple_3child_others <- candidates_others(temp,household_couple_3child_others)
+  rm(temp)
+  
+  #Assign others for household_2others
+  temp <- household_2others %>% assign_others(person) %>%  select(PID.y,HID)
+  household_2others <- candidates_others(temp,household_2others)
+  
+  #Assign others for household_3others
+  temp <- household_3others %>% assign_others(person) %>%  select(PID.y,HID)
+  household_3others <- candidates_others(temp,household_3others)
+  temp <- household_3others %>% assign_others(person) %>%  select(PID.y.y,HID)
+  household_3others <- candidates_others(temp,household_3others)
+  
+  #Assign others for household_4others
+  temp <- household_4others %>% assign_others(person) %>%  select(PID.y,HID)
+  household_4others <- candidates_others(temp,household_4others)
+  temp <- household_4others %>% assign_others(person) %>%  select(PID.y.y,HID)
+  household_4others <- candidates_others(temp,household_4others)
+  temp <- household_4others %>% assign_others(person) %>%  select(PID.y.y.y,HID)
+  household_4others <- candidates_others(temp,household_4others)
+  
+  #Assign others for household_5others
+  temp <- household_5others %>% assign_others(person) %>%  select(PID.y,HID)
+  household_5others <- candidates_others(temp,household_5others)
+  temp <- household_5others %>% assign_others(person) %>%  select(PID.y.y,HID)
+  household_5others <- candidates_others(temp,household_5others)
+  temp <- household_5others %>% assign_others(person) %>%  select(PID.y.y.y,HID)
+  household_5others <- candidates_others(temp,household_5others)
+  temp <- household_5others %>% assign_others(person) %>%  select(PID.y.y.y.y,HID)
+  household_5others <- candidates_others(temp,household_5others)
+  
+  #Assign others for household_6others
+  temp <- household_6others %>% assign_others(person) %>%  select(PID.y,HID)
+  household_6others <- candidates_others(temp,household_6others)
+  temp <- household_6others %>% assign_others(person) %>%  select(PID.y.y,HID)
+  household_6others <- candidates_others(temp,household_6others)
+  temp <- household_6others %>% assign_others(person) %>%  select(PID.y.y.y,HID)
+  household_6others <- candidates_others(temp,household_6others)
+  temp <- household_6others %>% assign_others(person) %>%  select(PID.y.y.y.y,HID)
+  household_6others <- candidates_others(temp,household_6others)
+  temp <- household_6others %>% assign_others(person) %>%  select(PID.y.y.y.y.y,HID)
+  household_6others <- candidates_others(temp,household_6others)
+  
+  #combine all household with assigned person
+  household_combined <- bind_rows(household_couple,household_couple_1children,household_couple_2children,household_couple_3children,household_couple_4children,household_couple_1child_others,household_couple_2child_others,household_couple_3child_others,household_single,household_2others,household_3others,household_4others,household_5others,household_6others)
+  rm(household_couple,household_couple_1children,household_couple_2children,household_couple_3children,household_couple_4children,household_couple_1child_others,household_couple_2child_others,household_couple_3child_others,household_single,household_2others,household_3others,household_4others,household_5others,household_6others)
+
+  #Rearranging household data into persona data
+  household_trial <- household_combined %>% select(-c(Age,Sex,AgeSpouse,RaceSpouse,SexSpouse,Marriage,Npax,Race,spouseAge,NumberofChildren))
+  names(household_trial) <- c("HType","HHIncome","PlanningArea","Npax","HID","HeadID","Subzone","1","2","3","4","5")
+  household_trial %<>% gather("Blah","PID",c(HeadID,"1","2","3","4","5")) %>% select(-Blah) %>% filter(!is.na(PID)) %>% arrange(HID) %>% left_join(person,by=c("PID"="PID","Subzone"="Subzone","PlanningArea"="PlanningArea","HType"="HType")) %>% select(-c(temp,temp2,ActualAge,NumberofChildren))
+  save(household_trial,file = paste("household_trial",as.character(x),".RData",sep = ""))
+  rm(list=setdiff(ls(),c("household","person","x")))
+  gc()
+  print(paste(x,"iteration done"))
+}
+```
+  

@@ -1,0 +1,580 @@
+```{r message = FALSE}
+#Libraries
+library(plotly)
+```
+```{r}
+#Target Values
+PlanningArea_Npax <- read_xlsx("target values/PlanningArea_Npax.xlsx")
+PlanningArea_Marriage <- read_xlsx("target values/PlanningArea_Marriage.xlsx")
+PlanningArea_HType <- read_xlsx("target values/PlanningArea_HType.xlsx")
+PlanningArea_HHIncome <- read_xlsx("target values/PlanningArea_HHIncome.xlsx")
+Subzone_Age <- read_xlsx("target values/Subzone_Age.xlsx")
+Subzone_Sex <- read_xlsx("target values/Subzone_Sex.xlsx")
+Subzone_Race <- read_xlsx("target values/Subzone_Race.xlsx")
+
+#create target values for IPU
+hh_target <- list()
+hh_target$Npax <- as.data.frame(PlanningArea_Npax)
+hh_target$HType <- as.data.frame(PlanningArea_HType)
+hh_target$HHIncome <- as.data.frame(PlanningArea_HHIncome)
+per_target <- list()
+per_target$Marriage <- as.data.frame(PlanningArea_Marriage)
+per_target$Sex <- as.data.frame(Subzone_Sex)
+per_target$Race <- as.data.frame(Subzone_Race)
+per_target$Age <- as.data.frame(Subzone_Age)
+```
+```{r}
+#Pre-Porcessing for household data
+hh_seed <- household_trial %>% select(HID,HType,HHIncome,PlanningArea,Npax,Subzone)
+hh_seed <- hh_seed[!duplicated(hh_seed$HID),]
+temp <- as.character(hh_seed$HHIncome)
+temp <- gsub("1,000 - 1,499","1,000 - 1,999",temp)
+temp <- gsub("1,500 - 1,999","1,000 - 1,999",temp)
+temp <- gsub("2,000 - 2,499","2,000 - 2,999",temp)
+temp <- gsub("2,500 - 2,999","2,000 - 2,999",temp)
+temp <- gsub("3,000 - 3,499","3,000 - 3,999",temp)
+temp <- gsub("3,500 - 3,999","3,000 - 3,999",temp)
+temp <- gsub("4,000 - 4,499","4,000 - 4,999",temp)
+temp <- gsub("4,500 - 4,999","4,000 - 4,999",temp)
+temp <- factor(temp,levels = c("No working person","Below 1,000","1,000 - 1,999","2,000 - 2,999","3,000 - 3,999","4,000 - 4,999","5,000 - 5,999","6,000 - 6,999","7,000 - 7,999","8,000 - 8,999","9,000 - 9,999","10,000 - 10,999","11,000 - 11,999","12,000 - 12,999","13,000 - 13,999","14,000 - 14,999","15,000 - 17,499","17,500 - 19,999","20,000 & Over"))
+hh_seed %<>% mutate(HHIncome = temp)
+levels(hh_seed$HType) = setdiff(names(PlanningArea_HType),"geo_planningarea")
+levels(hh_seed$HHIncome) = setdiff(names(PlanningArea_HHIncome),"geo_planningarea")
+hh_seed$Npax <- as.character(hh_seed$Npax)
+hh_seed$PlanningArea <- as.numeric(hh_seed$PlanningArea)
+hh_seed$Subzone <- as.numeric(hh_seed$Subzone)
+
+per_seed <- household_trial %>% select(PlanningArea,Subzone,Age,Sex,Marriage,Race)
+per_seed$PlanningArea <- as.numeric(per_seed$PlanningArea)
+per_seed$Subzone <- as.numeric(per_seed$Subzone)
+```
+```{r}
+#create initial before IPU
+hh_initial <- list()
+hh_initial$Npax <- hh_seed %>% group_by(PlanningArea,Npax) %>% summarise(initial = as.numeric(n())) %>% as.data.frame() 
+hh_initial$HType <- hh_seed %>% group_by(PlanningArea,HType) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+hh_initial$HHIncome <- hh_seed %>% group_by(PlanningArea,HHIncome) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial <- list()
+per_initial$Marriage <- per_seed %>% group_by(PlanningArea,Marriage) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Sex <- per_seed %>% group_by(Subzone,Sex) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Race <- per_seed %>% group_by(Subzone,Race) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Age <- per_seed %>% group_by(Subzone,Age) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+
+#Initial difference
+hh_target$Npax <- hh_target$Npax %>% gather("npax","target",-1)
+hh_target$HType <- hh_target$HType %>% gather("HType","target",-1)
+hh_target$HHIncome <- hh_target$HHIncome %>% gather("HHIncome","target",-1)
+per_target$Marriage <- per_target$Marriage %>% gather("Marriage","target",-1)
+per_target$Sex <- per_target$Sex %>% gather("Sex","target",-1)
+per_target$Race <- per_target$Race %>% gather("Race","target",-1)
+per_target$Age <- per_target$Age %>% gather("Age","target",-1)
+
+
+
+hh_initial$Npax <- left_join(hh_target$Npax,hh_initial$Npax,by=c("geo_planningarea"="PlanningArea","npax"="Npax"))%>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+hh_initial$HType<- left_join(hh_target$HType,hh_initial$HType,by=c("geo_planningarea"="PlanningArea","HType"="HType")) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100) %>% mutate_if(is.numeric,coalesce,0)
+
+hh_initial$HHIncome <- left_join(hh_target$HHIncome,hh_initial$HHIncome,by=c("geo_planningarea"="PlanningArea","HHIncome"="HHIncome"))%>% mutate_if(is.numeric,coalesce,0)  %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Marriage <- left_join(per_target$Marriage,per_initial$Marriage,by=c("geo_planningarea"="PlanningArea","Marriage"="Marriage"))%>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Sex <- left_join(per_target$Sex,per_initial$Sex,by=c("geo_subzone"="Subzone","Sex"="Sex"))  %>% mutate_if(is.numeric,coalesce,0) %>%mutate(diff = abs(target-initial),pct_diff = diff/target*100) %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Race <-left_join(per_target$Race,per_initial$Race,by=c("geo_subzone"="Subzone","Race"="Race")) %>% mutate_if(is.numeric,coalesce,0)%>%mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Age <- left_join(per_target$Age,per_initial$Age,by=c("geo_subzone"="Subzone","Age"="Age")) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+```
+```{r}
+accuracy <- function(hh_initial,per_initial){
+  total = 8796 #total number of marginal total to hit
+  counter = 0
+  temp <- data.frame()
+  for(x in hh_initial){
+     counter = nrow(x %>% filter(diff<=50|pct_diff <=10)) +counter
+     t1 <- as.vector(c(nrow(x %>% filter(diff<=50|pct_diff <=10)),nrow(x %>% filter(diff<=50|pct_diff <=10))/nrow(x)*100))
+     temp <- rbind(temp,t1)
+  }
+  for(x in per_initial){
+     counter = nrow(x %>% filter(diff<=50|pct_diff <=10)) +counter
+     t1 <- as.vector(c(nrow(x %>% filter(diff<=50|pct_diff <=10)),nrow(x %>% filter(diff<=50|pct_diff <=10))/nrow(x)*100))
+     temp <- rbind(temp,t1)
+  }
+  t1 <- as.vector(c(counter,counter/total*100))
+  temp<- rbind(temp,t1)
+  t1 <- as.vector(c("Npax","HType","HHIncome","Marriage","Sex","Race","Age","total"))
+  temp <- cbind (temp,t1)
+  names(temp) <- c("initial","fraction","Target")
+  return(temp)
+}
+```
+
+```{r}
+#Total accuracy before running IPU
+p <- accuracy(hh_initial,per_initial) %>% mutate(type = "initial")
+```
+
+## After IPU
+
+```{r}
+#Target Values
+PlanningArea_Npax <- read_xlsx("target values/PlanningArea_Npax.xlsx")
+PlanningArea_Marriage <- read_xlsx("target values/PlanningArea_Marriage.xlsx")
+PlanningArea_HType <- read_xlsx("target values/PlanningArea_HType.xlsx")
+PlanningArea_HHIncome <- read_xlsx("target values/PlanningArea_HHIncome.xlsx")
+Subzone_Age <- read_xlsx("target values/Subzone_Age.xlsx")
+Subzone_Sex <- read_xlsx("target values/Subzone_Sex.xlsx")
+Subzone_Race <- read_xlsx("target values/Subzone_Race.xlsx")
+
+#create target values for IPU
+hh_target <- list()
+hh_target$Npax <- as.data.frame(PlanningArea_Npax)
+hh_target$HType <- as.data.frame(PlanningArea_HType)
+hh_target$HHIncome <- as.data.frame(PlanningArea_HHIncome)
+per_target <- list()
+per_target$Marriage <- as.data.frame(PlanningArea_Marriage)
+per_target$Sex <- as.data.frame(Subzone_Sex)
+per_target$Race <- as.data.frame(Subzone_Race)
+per_target$Age <- as.data.frame(Subzone_Age)
+```
+
+```{r}
+
+#Synthesized Population
+hh_seed <- population %>% select(new_id,HType,HHIncome,PlanningArea,Npax,Subzone)
+hh_seed <- hh_seed[!duplicated(hh_seed$new_id),]
+hh_seed$Npax <- as.character(hh_seed$Npax)
+hh_seed$PlanningArea <- as.numeric(hh_seed$PlanningArea)
+hh_seed$Subzone <- as.numeric(hh_seed$Subzone)
+
+per_seed <- population %>% select(PlanningArea,Subzone,Age,Sex,Marriage,Race)
+per_seed$PlanningArea <- as.numeric(per_seed$PlanningArea)
+per_seed$Subzone <- as.numeric(per_seed$Subzone)
+```
+
+```{r}
+#create initial after IPU
+hh_initial <- list()
+hh_initial$Npax <- hh_seed %>% group_by(PlanningArea,Npax) %>% summarise(initial = as.numeric(n())) %>% as.data.frame() 
+hh_initial$HType <- hh_seed %>% group_by(PlanningArea,HType) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+hh_initial$HHIncome <- hh_seed %>% group_by(PlanningArea,HHIncome) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial <- list()
+per_initial$Marriage <- per_seed %>% group_by(PlanningArea,Marriage) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Sex <- per_seed %>% group_by(Subzone,Sex) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Race <- per_seed %>% group_by(Subzone,Race) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+per_initial$Age <- per_seed %>% group_by(Subzone,Age) %>% summarise(initial = as.numeric(n())) %>% as.data.frame()
+
+#Initial difference
+hh_target$Npax <- hh_target$Npax %>% gather("npax","target",-1)
+hh_target$HType <- hh_target$HType %>% gather("HType","target",-1)
+hh_target$HHIncome <- hh_target$HHIncome %>% gather("HHIncome","target",-1)
+per_target$Marriage <- per_target$Marriage %>% gather("Marriage","target",-1)
+per_target$Sex <- per_target$Sex %>% gather("Sex","target",-1)
+per_target$Race <- per_target$Race %>% gather("Race","target",-1)
+per_target$Age <- per_target$Age %>% gather("Age","target",-1)
+
+
+hh_initial$Npax <- left_join(hh_target$Npax,hh_initial$Npax,by=c("geo_planningarea"="PlanningArea","npax"="Npax"))%>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+hh_initial$HType<- left_join(hh_target$HType,hh_initial$HType,by=c("geo_planningarea"="PlanningArea","HType"="HType")) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100) %>% mutate_if(is.numeric,coalesce,0)
+
+hh_initial$HHIncome <- left_join(hh_target$HHIncome,hh_initial$HHIncome,by=c("geo_planningarea"="PlanningArea","HHIncome"="HHIncome"))%>% mutate_if(is.numeric,coalesce,0)  %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Marriage <- left_join(per_target$Marriage,per_initial$Marriage,by=c("geo_planningarea"="PlanningArea","Marriage"="Marriage"))%>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Sex <- left_join(per_target$Sex,per_initial$Sex,by=c("geo_subzone"="Subzone","Sex"="Sex"))  %>% mutate_if(is.numeric,coalesce,0) %>%mutate(diff = abs(target-initial),pct_diff = diff/target*100) %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Race <-left_join(per_target$Race,per_initial$Race,by=c("geo_subzone"="Subzone","Race"="Race")) %>% mutate_if(is.numeric,coalesce,0)%>%mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+
+per_initial$Age <- left_join(per_target$Age,per_initial$Age,by=c("geo_subzone"="Subzone","Age"="Age")) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(diff = abs(target-initial),pct_diff = diff/target*100)  %>% mutate_if(is.numeric,coalesce,0)
+```
+
+
+```{r}
+#Accuracy after running ipu
+p2 <- accuracy(hh_initial,per_initial) %>% mutate(type = "IPU")
+```
+
+```{r}
+PlanningArea.lv <- c("AngMoKio","Bedok","Bishan","BukitBatok","BukitMerah","BukitPanjang","BukitTimah","ChoaChuKang","Clementi","Geylang","Hougang","JurongEast","JurongWest","Kallang","MarineParade","Novena","Outram","PasirRis","Punggol","Queenstown","Sembawang","Sengkang","Serangoon","Tampines","Tanglin","ToaPayoh","Woodlands","Yishun","Others")
+Subzone.lv <- c(" Ang Mo Kio Town Centre ",
+" Cheng San ",
+" Chong Boon ",
+" Kebun Bahru ",
+" Sembawang Hills ",
+" Shangri-La ",
+" Tagore ",
+" Townsville ",
+" Yio Chu Kang ",
+" Yio Chu Kang East ",
+" Yio Chu Kang North ",
+" Yio Chu Kang West ",
+" Bayshore ",
+" Bedok North ",
+" Bedok Reservoir ",
+" Bedok South ",
+" Frankel ",
+" Kaki Bukit ",
+" Kembangan ",
+" Siglap ",
+" Bishan East ",
+" Marymount ",
+" Upper Thomson ",
+" Liu Fang ",
+" SaMulun ",
+" Shipyard ",
+" Tukang ",
+" BrickWorks ",
+" Bukit Batok Central ",
+" Bukit Batok East ",
+" Bukit Batok South ",
+" Bukit Batok West ",
+" Gombak ",
+" Guilin ",
+" Hillview ",
+" Hong Kah North ",
+" Alexandra Hill ",
+" Alexandra North ",
+" Bukit Ho Swee ",
+" Bukit Merah ",
+" City Terminals ",
+" Depot Road ",
+" Everton Park ",
+" Henderson Hill ",
+" Kampong Tiong Bahru ",
+" Maritime Square ",
+" Redhill ",
+" Singapore General Hospital ",
+" Telok Blangah Drive ",
+" Telok Blangah Rise ",
+" Telok Blangah Way ",
+" Tiong Bahru ",
+" Tiong Bahru Station ",
+" Bangkit ",
+" Dairy Farm ",
+" Fajar ",
+" Jelebu ",
+" Nature Reserve ",
+" Saujana ",
+" Senja ",
+" Anak Bukit ",
+" Coronation Road ",
+" Farrer Court ",
+" Hillcrest ",
+" Holland Road ",
+" Leedon Park ",
+" Swiss Club ",
+" Ulu Pandan ",
+" Central Water Catchment ",
+" Changi Airport ",
+" Changi Point ",
+" Changi West ",
+" Changi Bay ",
+" Choa Chu Kang Central ",
+" Choa Chu Kang North ",
+" Keat Hong ",
+" Peng Siang ",
+" Teck Whye ",
+" Yew Tee ",
+" Clementi Central ",
+" Clementi North ",
+" Clementi West ",
+" Clementi Woods ",
+" Faber ",
+" Pandan ",
+" Sunset Way ",
+" Toh Tuck ",
+" West Coast ",
+" Anson ",
+" Bayfront Subzone ",
+" Bugis ",
+" Cecil ",
+" Central Subzone ",
+" City Hall ",
+" Clifford Pier ",
+" Marina Centre ",
+" Maxwell ",
+" Phillip ",
+" Raffles Place ",
+" Tanjong Pagar ",
+" Aljunied ",
+" Geylang East ",
+" Kallang Way ",
+" Kampong Ubi ",
+" Macpherson ",
+" Defu Industrial Park ",
+" Hougang Central ",
+" Hougang East ",
+" Hougang West ",
+" Kangkar ",
+" Kovan ",
+" Lorong Ah Soo ",
+" Lorong Halus ",
+" Tai Seng ",
+" Trafalgar ",
+" International Business Park ",
+" Jurong Gateway ",
+" Jurong Port ",
+" Jurong River ",
+" Lakeside ",
+" Penjuru Crescent ",
+" Teban Gardens ",
+" Toh Guan ",
+" Yuhua East ",
+" Yuhua West ",
+" Boon Lay Place ",
+" Chin Bee ",
+" Hong Kah ",
+" Jurong West Central ",
+" Kian Teck ",
+" Safti ",
+" Taman Jurong ",
+" Wenya ",
+" Yunnan ",
+" Bendemeer ",
+" Boon Keng ",
+" Crawford ",
+" Geylang Bahru ",
+" Kallang Bahru ",
+" Kampong Bugis ",
+" Kampong Java ",
+" Lavender ",
+" Tanjong Rhu ",
+" Lim Chu Kang ",
+" Mandai East ",
+" Mandai Estate ",
+" Mandai West ",
+" Marina East ",
+" Marina South ",
+" East Coast ",
+" Katong ",
+" Marina East (MP) ",
+" Marine Parade ",
+" Mountbatten ",
+" Bras Basah ",
+" Dhoby Ghaut ",
+" Fort Canning ",
+" Cairnhill ",
+" Goodwood Park ",
+" Istana Negara ",
+" Monk'S Hill ",
+" Newton Circus ",
+" Orange Grove ",
+" North-Eastern Islands ",
+" Balestier ",
+" Dunearn ",
+" Malcolm ",
+" Moulmein ",
+" Mount Pleasant ",
+" Boulevard ",
+" Somerset ",
+" Tanglin ",
+" China Square ",
+" Chinatown ",
+" Pearl'S Hill ",
+" People'S Park ",
+" Flora Drive ",
+" Loyang East ",
+" Loyang West ",
+" Pasir Ris Central ",
+" Pasir Ris Drive ",
+" Pasir Ris Park ",
+" Pasir Ris Wafer Fab Park ",
+" Pasir Ris West ",
+" Airport Road ",
+" Paya Lebar East ",
+" Paya Lebar North ",
+" Paya Lebar West ",
+" Plab ",
+" Benoi Sector ",
+" Gul Basin ",
+" Gul Circle ",
+" Joo Koon ",
+" Pioneer Sector ",
+" Coney Island ",
+" Matilda ",
+" Northshore ",
+" Punggol Canal ",
+" Punggol Field ",
+" Punggol Town Centre ",
+" Waterway East ",
+" Commonwealth ",
+" Dover ",
+" Ghim Moh ",
+" Holland Drive ",
+" Kent Ridge ",
+" Margaret Drive ",
+" Mei Chin ",
+" National University Of S'Pore ",
+" One North ",
+" Pasir Panjang 1 ",
+" Pasir Panjang 2 ",
+" Port ",
+" Queensway ",
+" Singapore Polytechnic ",
+" Tanglin Halt ",
+" Institution Hill ",
+" Leonie Hill ",
+" One Tree Hill ",
+" Oxley ",
+" Paterson ",
+" Bencoolen ",
+" Farrer Park ",
+" Kampong Glam ",
+" Little India ",
+" Mackenzie ",
+" Mount Emily ",
+" Rochor Canal ",
+" Selegie ",
+" Sungei Road ",
+" Victoria ",
+" Pulau Punggol Barat ",
+" Pulau Punggol Timor ",
+" Seletar ",
+" Seletar Aerospace Park ",
+" Admiralty ",
+" Sembawang Central ",
+" Sembawang East ",
+" Sembawang North ",
+" Sembawang Springs ",
+" Sembawang Straits ",
+" Senoko North ",
+" Senoko South ",
+" The Wharves ",
+" Anchorvale ",
+" Compassvale ",
+" Fernvale ",
+" Lorong Halus North ",
+" Rivervale ",
+" Sengkang Town Centre ",
+" Sengkang West ",
+" Lorong Chuan ",
+" Seletar Hills ",
+" Serangoon Central ",
+" Serangoon Garden ",
+" Serangoon North ",
+" Serangoon North Ind Estate ",
+" Upper Paya Lebar ",
+" Pulau Seletar ",
+" Simpang North ",
+" Simpang South ",
+" Tanjong Irau ",
+" Boat Quay ",
+" Clarke Quay ",
+" Robertson Quay ",
+" Sentosa ",
+" Southern Group ",
+" Straits View ",
+" Gali Batu ",
+" Kranji ",
+" Pang Sua ",
+" Reservoir View ",
+" Turf Club ",
+" Simei ",
+" Tampines East ",
+" Tampines North ",
+" Tampines West ",
+" Xilin ",
+" Chatsworth ",
+" Nassim ",
+" Ridout ",
+" Tyersall ",
+" Tengah ",
+" Bidadari ",
+" Boon Teck ",
+" Braddell ",
+" Joo Seng ",
+" Kim Keat ",
+" Lorong 8 Toa Payoh ",
+" Pei Chun ",
+" Potong Pasir ",
+" Sennett ",
+" Toa Payoh Central ",
+" Toa Payoh West ",
+" Woodleigh ",
+" Tengeh ",
+" Tuas Bay ",
+" Tuas North ",
+" Tuas Promenade ",
+" Tuas View ",
+" Tuas View Extension ",
+" Jurong Island And Bukom ",
+" Semakau ",
+" Sudong ",
+" Western Water Catchment ",
+" Greenwood Park ",
+" Midview ",
+" North Coast ",
+" Senoko West ",
+" Woodgrove ",
+" Woodlands East ",
+" Woodlands Regional Centre ",
+" Woodlands South ",
+" Woodlands West ",
+" Khatib ",
+" Lower Seletar ",
+" Nee Soon ",
+" Northland ",
+" Springleaf ",
+" Yishun Central ",
+" Yishun East ",
+" Yishun South ",
+" Yishun West ")
+```
+```{r}
+#Plot Overall Difference
+p1 <- rbind(p,p2)
+p1 %>% ggplot(aes(x = Target,y= fraction, fill = factor(type))) +geom_col(position = "dodge")
+
+#Detailed analysis on Each Variable
+#Age
+
+#Change geo_subzone and geo_planningarea back to actual factors
+per_initial$Age$geo_subzone <- factor(per_initial$Age$geo_subzone,levels(as.factor(per_initial$Age$geo_subzone)),Subzone.lv)
+
+per_initial$Age %>% group_by(Age) %>% summarise(target = sum(target),result = sum(initial)) %>% gather("type","NPeople",-1) %>% ggplot(aes(x =Age,y = NPeople, fill = factor(type))) +geom_col(position = "dodge")
+
+p1 <- per_initial$Age %>% filter(pct_diff >= 10, diff >=2000) %>% ggplot(aes(x=Age, y= diff, fill = factor(geo_subzone))) +geom_col(position= "dodge") +coord_flip()
+ggplotly(p1)
+
+#Marriage
+
+#Change geo_subzone and geo_planningarea back to actual factors
+per_initial$Marriage$geo_planningarea <- factor(per_initial$Marriage$geo_planningarea,levels(as.factor(per_initial$Marriage$geo_planningarea)),PlanningArea.lv)
+
+per_initial$Marriage %>% group_by(Marriage) %>% summarise(target = sum(target),result = sum(initial)) %>% gather("type","NPeople",-1) %>% ggplot(aes(x =Marriage,y = NPeople, fill = factor(type))) +geom_col(position = "dodge")
+
+
+p2 <- per_initial$Marriage %>% filter(pct_diff >= 10 & diff >= 5000) %>% ggplot(aes(x=Marriage, y= diff, fill = factor(geo_planningarea))) +geom_col(position= "dodge") +coord_flip()
+ggplotly(p2)
+
+#Race
+
+#Change geo_subzone and geo_planningarea back to actual factors
+per_initial$Race$geo_subzone <- factor(per_initial$Race$geo_subzone,levels(as.factor(per_initial$Race$geo_subzone)),Subzone.lv)
+
+per_initial$Race %>% group_by(Race) %>% summarise(target = sum(target),result = sum(initial)) %>% gather("type","NPeople",-1) %>% ggplot(aes(x =Race,y = NPeople, fill = factor(type))) +geom_col(position = "dodge")
+
+
+p3 <- per_initial$Race %>% filter(pct_diff >= 10 & diff >= 5500) %>% ggplot(aes(x=Race, y= diff, fill = factor(geo_subzone))) +geom_col(position= "dodge") +coord_flip()
+ggplotly(p3)
+
+#Sex
+
+#Change geo_subzone and geo_planningarea back to actual factors
+per_initial$Sex$geo_subzone <- factor(per_initial$Sex$geo_subzone,levels(as.factor(per_initial$Sex$geo_subzone)),Subzone.lv)
+
+per_initial$Sex %>% group_by(Sex) %>% summarise(target = sum(target),result = sum(initial)) %>% gather("type","NPeople",-1) %>% ggplot(aes(x =Sex,y = NPeople, fill = factor(type))) +geom_col(position = "dodge")
+
+p4 <- per_initial$Sex %>% filter(pct_diff >= 10,diff >= 5000) %>% ggplot(aes(x=Sex, y= diff, fill = factor(geo_subzone))) +geom_col(position= "dodge") +coord_flip()
+ggplotly(p4)
+
+#HType
+
+#Change geo_subzone and geo_planningarea back to actual factors
+hh_initial$HType$geo_planningarea <- factor(hh_initial$HType$geo_planningarea,levels(as.factor(hh_initial$HType$geo_planningarea)),PlanningArea.lv)
+
+p5 <- hh_initial$HType %>% filter(pct_diff >= 10,diff >= 50) %>% ggplot(aes(x=HType, y= diff, fill = factor(geo_planningarea))) +geom_col(position= "dodge") +coord_flip()
+ggplotly(p5)
+```
+

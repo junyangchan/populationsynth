@@ -1,0 +1,73 @@
+```{r}
+#load libraries
+library(ipfr)
+library(readxl)
+library(magrittr)
+library(tidyverse)
+```
+
+```{r}
+#Set up initial seed for IPU 
+hh_seed <- household_trial %>% select(HID,HType,HHIncome,PlanningArea,Npax,Subzone)
+hh_seed <- hh_seed[!duplicated(hh_seed$HID),]
+per_seed <- household_trial %>% select(HID,Age,Sex,Marriage,Race)
+names(hh_seed) <- c("HID","HType","HHIncome","geo_planningarea","Npax","geo_subzone")
+```
+```{r}
+#Target Values
+PlanningArea_Npax <- read_xlsx("target values/PlanningArea_Npax.xlsx")
+PlanningArea_Marriage <- read_xlsx("target values/PlanningArea_Marriage.xlsx")
+PlanningArea_HType <- read_xlsx("target values/PlanningArea_HType.xlsx")
+PlanningArea_HHIncome <- read_xlsx("target values/PlanningArea_HHIncome.xlsx")
+Subzone_Age <- read_xlsx("target values/Subzone_Age.xlsx")
+Subzone_Sex <- read_xlsx("target values/Subzone_Sex.xlsx")
+Subzone_Race <- read_xlsx("target values/Subzone_Race.xlsx")
+```
+```{r}
+#Make sure levels and column matches
+temp <- as.character(hh_seed$HHIncome)
+temp <- gsub("1,000 - 1,499","1,000 - 1,999",temp)
+temp <- gsub("1,500 - 1,999","1,000 - 1,999",temp)
+temp <- gsub("2,000 - 2,499","2,000 - 2,999",temp)
+temp <- gsub("2,500 - 2,999","2,000 - 2,999",temp)
+temp <- gsub("3,000 - 3,499","3,000 - 3,999",temp)
+temp <- gsub("3,500 - 3,999","3,000 - 3,999",temp)
+temp <- gsub("4,000 - 4,499","4,000 - 4,999",temp)
+temp <- gsub("4,500 - 4,999","4,000 - 4,999",temp)
+temp <- factor(temp,levels = c("No working person","Below 1,000","1,000 - 1,999","2,000 - 2,999","3,000 - 3,999","4,000 - 4,999","5,000 - 5,999","6,000 - 6,999","7,000 - 7,999","8,000 - 8,999","9,000 - 9,999","10,000 - 10,999","11,000 - 11,999","12,000 - 12,999","13,000 - 13,999","14,000 - 14,999","15,000 - 17,499","17,500 - 19,999","20,000 & Over"))
+hh_seed %<>% mutate(HHIncome = temp)
+
+levels(hh_seed$HType) = setdiff(names(PlanningArea_HType),"geo_planningarea")
+levels(hh_seed$HHIncome) = setdiff(names(PlanningArea_HHIncome),"geo_planningarea")
+names(hh_seed)[1] <-"id"
+names(per_seed)[1] <-"id"
+hh_seed$geo_planningarea <- as.numeric(hh_seed$geo_planningarea)
+hh_seed$geo_subzone <- as.numeric(hh_seed$geo_subzone)
+```
+
+```{r}
+#create target values for IPU
+hh_target <- list()
+hh_target$Npax <- as.data.frame(PlanningArea_Npax)
+hh_target$HType <- as.data.frame(PlanningArea_HType)
+hh_target$HHIncome <- as.data.frame(PlanningArea_HHIncome)
+per_target <- list()
+per_target$Marriage <- as.data.frame(PlanningArea_Marriage)
+#per_target$Sex <- as.data.frame(Subzone_Sex)
+#per_target$Race <- as.data.frame(Subzone_Race)
+#per_target$perAge <- as.data.frame(Subzone_Age)
+
+
+#IPU
+result <- ipu(hh_seed, hh_target,per_seed, per_target,verbose = TRUE,relative_gap = 0.1,max_iterations = 1000re,absolute_diff = 50)
+
+```
+```{r}
+set.seed(4231)
+population <- synthesize(result$weight_tbl,group_by = "geo_planningarea") 
+population <- inner_join(population,household_trial,by=c("id"="HID"))%>% select(-c(HType.y,HHIncome.y,Npax.y,geo_planningarea,geo_subzone))
+names(population) <- c("new_id","HID","HType","HHIncome","Npax","PlanningArea","Subzone","PID","Age","Sex","Marriage","Race")
+rm(list=setdiff(ls(),c("population","household_trial")))
+gc()
+```
+
