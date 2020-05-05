@@ -94,7 +94,7 @@ bn <- custom.fit(dag,cpt)
 ```{r}
 set.seed(4231)
 #Generate sample 
-total= 2000000 #number of household in aggreagated data
+total= 1225300 #number of household in aggreagated data
 sim <- rbn(bn,n=total)
 head(sim)
 ```
