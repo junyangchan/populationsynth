@@ -6,11 +6,17 @@ Run in the following order bn_popsynth_person -> bn_popsynth_household -> combin
 # Required
 
 library(bnlearn)
+
 library(tidyverse)
+
 library(magrittr)
+
 library(readr)
+
 library(readxl)
+
 library(ipfr)
+
 library(plotly)
 
 # Overview
