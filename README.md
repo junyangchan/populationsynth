@@ -1,7 +1,17 @@
-# populationsynth
+# Populationsynth
 Population Synthesize using Bayesian Network and IPU
 
 Run in the following order bn_popsynth_person -> bn_popsynth_household -> combine -> IPU -> visualization
+
+# Required
+
+library(bnlearn)
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(readxl)
+library(ipfr)
+library(plotly)
 
 # Overview
 We start by building Person and Household level data using Bayesian Network from bn_popsynth_person and bn_popsynth_household. 
